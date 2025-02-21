@@ -4,63 +4,54 @@
 
 ## 功能特点
 
-- 支持图像分析和描述
-- 支持多轮对话
-- 支持处理外部图片
-- 结果保存和格式化输出
-- 可选的 JSON 响应保存
+- 基于 LangChain 框架实现的智能图像分析
+- 支持多种图像处理和分析功能
+- 可扩展的工具系统
+- 配置化的模型和 API 管理
 
-## 配置说明
+## 安装说明
 
-在使用前，需要创建 `config.json` 文件，包含以下配置：
-
-```json
-{
-    "api_key": "你的API密钥",
-    "image_folder": "images",
-    "output_folder": "outputs",
-    "base_url": "API基础URL",
-    "model_config": {
-        "model": "模型名称"
-    },
-    "save_json": false
-}
-```
+1. 克隆项目到本地
+2. 安装依赖:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. 在 `config/api_keys.json` 中配置必要的 API 密钥
 
 ## 目录结构
 
 ```
-├── config.json          # 配置文件
-├── deepseek_openai_style.py  # 主程序
-├── images/             # 图片目录
-└── outputs/           # 输出目录
+├── agents/                # Agent实现
+│   ├── image_analysis.py  # 图片分析Agent
+│   └── utils.py          # 工具函数
+├── config/               # 配置文件
+│   ├── api_keys.json    # API密钥
+│   └── models.json      # 模型配置
+├── data/                # 数据目录
+│   ├── images/         # 图片存储
+│   └── logs/           # 日志文件
+├── tools/               # 工具类
+│   └── image_tool.py   # 图片处理工具
+├── tests/               # 测试用例
+├── main.py              # 程序入口
+└── requirements.txt     # 项目依赖
 ```
 
 ## 使用方法
 
-1. 安装依赖：
-```bash
-pip install openai
-```
+1. 确保配置文件中包含必要的API密钥
+2. 运行主程序：
+   ```bash
+   python main.py
+   ```
 
-2. 配置 config.json
+## 开发指南
 
-3. 运行程序：
-```python
-from deepseek_openai_style import ImageProcessor, ConfigManager
+- 遵循PEP 8编码规范
+- 新功能请添加对应的测试用例
+- 保持代码文档的完整性
 
-config = ConfigManager()
-processor = ImageProcessor(config)
+## 环境要求
 
-# 处理图片
-processor.process_image("example.png", "图中描绘的是什么景象？")
-
-# 继续对话
-processor.continue_conversation("请详细分析一下图中的内容。")
-```
-
-## 注意事项
-
-- 请确保 config.json 中的 API 密钥配置正确
-- 图片文件请放在 images 目录下
-- 分析结果将保存在 outputs 目录中
+- Python 3.8+
+- 详细依赖见 requirements.txt

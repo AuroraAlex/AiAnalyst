@@ -1,0 +1,8 @@
+{
+    "models": {
+        "image_analysis": {
+            "model_name": "qwen-vl-plus",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        }
+    }
+}
