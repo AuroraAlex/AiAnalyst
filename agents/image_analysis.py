@@ -17,8 +17,7 @@ from tools.image_tool import ImageTool
 class ImageAnalysisAgent:
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
-        self.chat_history = []
-        self._initialize_model()
+                self._initialize_model()
         
     def _initialize_model(self):
         """Initialize the LangChain chat model with configuration."""
@@ -27,7 +26,7 @@ class ImageAnalysisAgent:
         
         self.llm = ChatOpenAI(
             model_name=model_config.get("model_name", "qwen-vl-max-latest"),
-            openai_api_key=api_keys.get("api_key"),  # 更新为新的键名
+            openai_api_key=api_keys.get("api_key"),
             openai_api_base=model_config.get("base_url")
         )
         
@@ -83,12 +82,10 @@ class ImageAnalysisAgent:
             if image_path:
                 # If image is provided, analyze it first
                 analysis = self.analyze_image(image_path, message)
-                self.chat_history.append(HumanMessage(
-                    content=[{"type": "text", "text": f"{message} (with image: {image_path})"}]
-                ))
-                self.chat_history.append(AIMessage(
-                    content=[{"type": "text", "text": analysis}]
-                ))
+                self.memory.save_context(
+                    {"input": f"{message} (with image: {image_path})"},
+                    {"output": analysis}
+                )
                 return analysis
                 
             # Handle regular chat message
@@ -99,8 +96,8 @@ class ImageAnalysisAgent:
                 }])
             ]
             
-            # Add chat history
-            messages.extend(self.chat_history)
+            # Add chat history from memory
+            messages.extend(self.memory.load_memory_variables({})["chat_history"])
             
             # Add current message
             messages.append(HumanMessage(
@@ -110,29 +107,29 @@ class ImageAnalysisAgent:
             # Get response from LangChain
             response = self.llm.invoke(messages)
             
-            # Update chat history
-            self.chat_history.append(HumanMessage(
-                content=[{"type": "text", "text": message}]
-            ))
-            self.chat_history.append(AIMessage(
-                content=[{"type": "text", "text": response.content}]
-            ))
+            # Save to memory
+            self.memory.save_context(
+                {"input": message},
+                {"output": response.content}
+            )
             
             return response.content
 
         except Exception as e:
             error_msg = f"Error in chat: {str(e)}"
-            self.chat_history.append(SystemMessage(
-                content=[{"type": "text", "text": error_msg}]
-            ))
+            self.memory.save_context(
+                {"input": message},
+                {"output": error_msg}
+            )
             return error_msg
 
     def get_chat_history(self) -> List[Dict[str, str]]:
-        """Return the conversation history."""
+        """Return the conversation history from memory."""
+history = self.memory.load_memory_variables({})["chat_history"]
         return [
             {
                 "role": "user" if isinstance(msg, HumanMessage) else "assistant" if isinstance(msg, AIMessage) else "system",
                 "content": msg.content
             }
-            for msg in self.chat_history
+            for msg in history
         ]
