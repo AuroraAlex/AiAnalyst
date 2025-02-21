@@ -32,7 +32,8 @@ ENV/
 *.swo
 
 # Local development settings
-config.json
+/config/api_keys.json
+
 
 # Output files and images
 outputs/
