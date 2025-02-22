@@ -17,7 +17,7 @@ from tools.image_tool import ImageTool
 class ImageAnalysisAgent:
     def __init__(self, config: Dict[str, Any] = None):
         self.config = config or {}
-                self._initialize_model()
+        self._initialize_model()
         
     def _initialize_model(self):
         """Initialize the LangChain chat model with configuration."""
@@ -26,7 +26,7 @@ class ImageAnalysisAgent:
         
         self.llm = ChatOpenAI(
             model_name=model_config.get("model_name", "qwen-vl-max-latest"),
-            openai_api_key=api_keys.get("api_key"),
+            openai_api_key=api_keys.get("bailian_api_key"),
             openai_api_base=model_config.get("base_url")
         )
         
@@ -125,7 +125,7 @@ class ImageAnalysisAgent:
 
     def get_chat_history(self) -> List[Dict[str, str]]:
         """Return the conversation history from memory."""
-history = self.memory.load_memory_variables({})["chat_history"]
+        history = self.memory.load_memory_variables({})["chat_history"]
         return [
             {
                 "role": "user" if isinstance(msg, HumanMessage) else "assistant" if isinstance(msg, AIMessage) else "system",

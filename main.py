@@ -5,7 +5,7 @@ Main entry point for the Image Analysis Assistant.
 import os
 from pathlib import Path
 from agents.image_analysis import ImageAnalysisAgent
-from agents.utils import load_config
+from tools.utils import load_config
 
 def main():
     # Load configurations
