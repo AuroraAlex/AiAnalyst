@@ -234,6 +234,7 @@ class StockQuery:
                 'ema': [12, 26],
                 'macd': {'fast': 12, 'slow': 26, 'signal': 9},
                 'rsi': [14],
+                'kdj':[14,3],
                 'bbands': {'length': 20, 'std': 2},
                 'volume_sma': [5, 10, 20]
             }
@@ -285,11 +286,13 @@ class StockQuery:
             indicators[f'volume_sma_{period}'] = df['volume'].rolling(window=period).mean()
         
         # KDJ
-        stoch = df.ta.stoch(k=14, d=3, smooth_k=3)
-        stoch_cols = stoch.columns
+        kdj_params = params.get('kdj', {})
+        kdj = ta.kdj(high=df['high'], low=df['low'], close=df['close'], fillna=float('nan'),length=kdj_params[0],signal=kdj_params[1],)
+        
         indicators['kdj'] = {
-            'k': stoch[stoch_cols[0]],
-            'd': stoch[stoch_cols[1]]
+            'k': kdj[f"K_{kdj_params[0]}_{kdj_params[1]}"],
+            'd': kdj[f"D_{kdj_params[0]}_{kdj_params[1]}"],
+            'j': kdj[f"J_{kdj_params[0]}_{kdj_params[1]}"],
         }
         
         # ATR - Average True Range
@@ -299,6 +302,34 @@ class StockQuery:
         indicators['obv'] = df.ta.obv()
         
         return indicators
+
+    def serialize_indicators(self, indicators: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        将技术指标字典序列化为可JSON化的格式
+
+        Args:
+            indicators: 技术指标字典
+
+        Returns:
+            序列化后的技术指标字典
+        """
+        serialized = {}
+        
+        for key, value in indicators.items():
+            if isinstance(value, dict):
+                # 处理嵌套字典（如MACD、布林带等）
+                serialized[key] = {k: v.tolist() if hasattr(v, 'tolist') else float(v) 
+                                 for k, v in value.items()}
+            elif hasattr(value, 'tolist'):
+                # 处理pandas Series
+                serialized[key] = value.tolist()
+            elif isinstance(value, (int, float)):
+                # 处理数值类型
+                serialized[key] = float(value)
+            elif value is None:
+                serialized[key] = None
+        
+        return serialized
 
     def analyze_trading_data(self, trading_data: List[Dict]) -> Dict[str, Any]:
         """
@@ -333,9 +364,10 @@ class StockQuery:
         # 计算技术指标
         indicators = self.calculate_technical_indicators(df)
         
+        
         return {
             'statistics': stats,
-            'technical_indicators': indicators
+            'technical_indicators': self.serialize_indicators(indicators)
         }
 
 if __name__ == "__main__":
@@ -348,10 +380,12 @@ if __name__ == "__main__":
         **api_config
     })
 
-    data = stock_query.get_stock_daily_data("AAPL", "XNAS", 120)
+    data = stock_query.get_stock_daily_data("NVDA", "XNAS", 120)
     df = stock_query.json_data_to_pd(data)
     analyze_trading_data = stock_query.analyze_trading_data(data)
     print(analyze_trading_data)
+    with open("stock_analysis.json", "w") as f:
+        json.dump(analyze_trading_data, f, indent=4)
     # 获取特斯拉股票数据并绘制图表
     # stock_query.plot_stock_daily("TSLA", "XNAS", "tesla_stock.png")
     
