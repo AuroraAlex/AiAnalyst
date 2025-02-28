@@ -1,7 +1,6 @@
 import requests
 import json
 import os
-import utils
 from typing import List, Dict, Any, Union, Optional
 from pathlib import Path
 import datetime
@@ -13,6 +12,9 @@ import pandas_ta as ta
 import mplfinance as mpf
 import matplotlib as mpl
 from matplotlib.font_manager import findfont, FontProperties
+
+from tools import utils
+
 
 # 查找系统中可用的中文字体
 def find_chinese_font():
@@ -380,7 +382,9 @@ if __name__ == "__main__":
         **api_config
     })
 
-    data = stock_query.get_stock_daily_data("NVDA", "XNAS", 120)
+    data = stock_query.get_stock_daily_data("NVDA", "XNAS", 90)
+    # data = stock_query.get_stock_daily_data("81810", "XHKG", 120)
+    # data = stock_query.get_stock_daily_data("TSLA", "XNAS", 90)
     df = stock_query.json_data_to_pd(data)
     analyze_trading_data = stock_query.analyze_trading_data(data)
     print(analyze_trading_data)

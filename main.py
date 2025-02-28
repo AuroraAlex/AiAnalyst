@@ -6,8 +6,9 @@ import os
 from pathlib import Path
 from agents.image_analysis import ImageAnalysisAgent
 from tools.utils import load_config
+from agents.indicators_analysis import IndicatorsAnalysisAgent
 
-def main():
+def main1():
     # Load configurations
     config_dir = Path(__file__).parent / "config"
     api_keys = load_config(config_dir / "api_keys.json")
@@ -49,5 +50,22 @@ def main():
             
         print("\n助手:", response)
 
+def main():
+    # Load configurations
+    config_dir = Path(__file__).parent / "config"
+    api_keys = load_config(config_dir / "api_keys.json")
+    model_config = load_config(config_dir / "models.json")
+    
+    # Initialize agent
+    agent = IndicatorsAnalysisAgent(config={
+        **api_keys,
+        **model_config
+    })
+
+    tool_name = [tool.name for tool in agent.tools]
+    print(f"创建了{len(agent.tools)}个工具，为：{tool_name}\n")
+    print(agent.tools)
+
 if __name__ == "__main__":
     main()
+    

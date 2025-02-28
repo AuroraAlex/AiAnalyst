@@ -3,6 +3,10 @@
         "image_analysis": {
             "model_name": "qwen2.5-vl-72b-instruct",
             "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        },
+        "indicators_analysis": {
+            "model_name": "qwen-plus",
+            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1"
         }
     },
     "others":{
