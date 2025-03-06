@@ -13,8 +13,11 @@ import mplfinance as mpf
 import matplotlib as mpl
 from matplotlib.font_manager import findfont, FontProperties
 
+# from tools import utils
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools import utils
-
 
 # 查找系统中可用的中文字体
 def find_chinese_font():
@@ -272,15 +275,13 @@ class StockQuery:
         
         # 布林带
         bbands_params = params.get('bbands', {'length': 20, 'std': 2})
-        bbands = df.ta.bbands(
-            length=bbands_params['length'],
-            std=bbands_params['std']
-        )
-        bbands_cols = bbands.columns
+        bbol= ta.bbands(df["close"], length=bbands_params['length'], std=bbands_params['std'])
+        bbol.columns = ['lower', 'mid', 'upper', 'bandwidth', 'percent']
+
         indicators['bollinger_bands'] = {
-            'upper': bbands[bbands_cols[0]],   # 上轨
-            'middle': bbands[bbands_cols[1]],  # 中轨
-            'lower': bbands[bbands_cols[2]]    # 下轨
+            'upper': bbol['upper'],   # 上轨
+            'middle': bbol['mid'],  # 中轨
+            'lower': bbol['lower'],    # 下轨
         }
         
         # 成交量移动平均
@@ -382,8 +383,10 @@ if __name__ == "__main__":
         **api_config
     })
 
-    data = stock_query.get_stock_daily_data("NVDA", "XNAS", 90)
+    # data = stock_query.get_stock_daily_data("NVDA", "XNAS", 90)
+    # data = stock_query.get_stock_daily_data("INTC", "XNAS", 90)
     # data = stock_query.get_stock_daily_data("81810", "XHKG", 120)
+    data = stock_query.get_stock_daily_data("80020", "XHKG", 120)
     # data = stock_query.get_stock_daily_data("TSLA", "XNAS", 90)
     df = stock_query.json_data_to_pd(data)
     analyze_trading_data = stock_query.analyze_trading_data(data)

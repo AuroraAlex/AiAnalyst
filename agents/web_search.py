@@ -1,7 +1,6 @@
 from typing import Annotated, List, Dict
 from typing_extensions import TypedDict
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_core.tools import tool
 from duckduckgo_search import DDGS
 from dotenv import dotenv_values
 from langgraph.graph.message import add_messages
@@ -40,7 +39,7 @@ def web_search(query: str) -> str:
             return "没有找到相关结果。"
     
         summary = "\n\n".join(f"- {result['title']}\n{result['body']}" for result in results)
-        return results
+        return summary
 
 
 def should_continue(state: MessagesState):
@@ -62,7 +61,7 @@ if __name__ == "__main__":
     tool_node = ToolNode(tools)
     # 创建 ChatOpenAI 实例
     llm = ChatOpenAI(
-        model="qwen-max-0125",
+        model="qwen-max-latest",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         api_key=my_api_key,
         streaming=True
@@ -78,10 +77,21 @@ if __name__ == "__main__":
     workflow.add_edge("tools", "agent")
 
     app = workflow.compile()
-    
-    # example with a single tool call
-    for chunk in app.stream(
-        {"messages": [("human", "现在是北京时间几点？")]}, stream_mode="values"
-    ):
-        chunk["messages"][-1].pretty_print()
+    messages = []
+    messages.append(SystemMessage(content=[{"type": "text", "text": "我提供给你一个web搜索工具搜索问题，搜索一次后根据我返回的结果选择你认为最好的一个，找到其中的链接，并再次调用工具进行搜索,此时除function calling调用不返回其他内容；最后查看链接的内容总结后返回我需要的内容"}]))
+    messages.append(HumanMessage(content=[{"type": "text", "text": "如何使用Python搜索网络内容？"}]))
+    #流式输出
+    for message in app.invoke({"messages": messages}).get("messages", []):
+        # 安全地处理消息内容，适应不同格式
+        if hasattr(message, 'content'):
+            if isinstance(message.content, list) and len(message.content) > 0:
+                if isinstance(message.content[0], dict) and "text" in message.content[0]:
+                    print(message.content[0]["text"])
+                else:
+                    print(str(message.content[0]))
+            else:
+                print(str(message.content))
+        else:
+            print(str(message))
+
 
