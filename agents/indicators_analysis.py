@@ -160,7 +160,7 @@ class IndicatorsAnalysisAgent:
             model_name = self.model_name,
             openai_api_key = self.model_api_key,
             openai_api_base = self.data_base_url,
-            stream = False  # 修改为 False 解决流式输出的兼容性问题
+            stream = True  # 修改为 False 解决流式输出的兼容性问题
         )
 
 

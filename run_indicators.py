@@ -1,7 +1,8 @@
 from agents.indicators_analysis import IndicatorsAnalysisAgent
 from langchain_core.messages import SystemMessage, HumanMessage
+import asyncio
 
-def main():
+async def main():
     # 初始化Agent
     print("初始化IndicatorsAnalysisAgent...")
     agent = IndicatorsAnalysisAgent()
@@ -24,9 +25,12 @@ def main():
     
     print("开始调用Agent...")
     # 流式输出
-    
-    for message in app.stream({"messages": messages}):
-        print(message)
-
+    input = {"messages": messages}
+    try:
+        async for event in app.astream_events(input):
+            if event["event"] == "on_chat_model_end":
+                print(event["data"]["output"].content, end="", flush=True)
+    except:
+        print("发生异常，退出程序")
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
