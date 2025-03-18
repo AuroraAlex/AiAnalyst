@@ -30,6 +30,8 @@ async def main():
         async for event in app.astream_events(input):
             if event["event"] == "on_chat_model_end":
                 print(event["data"]["output"].content, end="", flush=True)
+            if event["event"] == "on_tool_end":
+                print(event["data"]["output"].content, end="", flush=True)
     except:
         print("发生异常，退出程序")
 if __name__ == "__main__":
