@@ -17,7 +17,8 @@ from langgraph.prebuilt import ToolNode
 from tools.new_stock_tools import StockAnalysis
 
 stock = StockAnalysis()
-stock_date_df = stock.get_stock_daily_data("80020", "XHKG", 120)
+# stock_date_df = stock.get_stock_daily_data("80020", "XHKG", 120)
+stock_date_df = stock.get_stock_daily_data("TSLA", "XNAS", 120)
 
 @tool
 def get_stock_ema(period: int) -> str:
