@@ -2,7 +2,6 @@ from typing import Annotated, List, Dict
 from typing_extensions import TypedDict
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
-from duckduckgo_search import DDGS
 from dotenv import dotenv_values
 from langgraph.graph.message import add_messages
 from langchain_openai import ChatOpenAI
@@ -153,9 +152,9 @@ class IndicatorsAnalysisAgent:
     def __init__(self):
          # 加载 .env 文件
         load_dotenv()
-        self.model_api_key = os.getenv("BAILIAN_API_KEY")
-        self.data_base_url = os.getenv("BAILIAN_BASE_URL")
-        self.model_name = os.getenv("INDICATORS_MODEL_NAME")
+        self.model_api_key = os.getenv("MODEL_API_KEY")
+        self.data_base_url = os.getenv("MODEL_BASE_URL")
+        self.model_name = os.getenv("FUNCTION_CALLING_MODEL_NAME")
         # 修改为非流模式，解决兼容性问题
         self.llm = ChatOpenAI(
             model_name = self.model_name,
