@@ -125,15 +125,15 @@ class StockAnalysis:
             
         plt.close()
 
-    def get_stock_daily_data(self, stock_code: str, exchange_code: str, days: int = 90) -> str:
+    def get_stock_daily_data(self, stock_code: str, exchange_code: str, days: int = 120) -> str:
         """
-        查询指定股票过去一个月的日线数据,保存到self.stock_data
+        查询指定股票指定时间（默认 120 天）的日线数据,保存到self.stock_data
 
         :param stock_code: 股票代码 (例如 "AAPL")
         :param exchange_code: 交易所代码 (例如 "XNAS" 或 "XHKG")
         :return: 返回查询状态
         """
-        # 获取当前日期和一个月前的日期
+        # 获取当前日期和指定时间前的日期
         end_date = datetime.datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.datetime.now() - datetime.timedelta(days)).strftime("%Y-%m-%d")
 

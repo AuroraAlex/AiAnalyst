@@ -4,6 +4,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langgraph.graph import Graph, StateGraph
 from langchain_openai import ChatOpenAI
 from dotenv import dotenv_values
+from textwrap import dedent
 
 from tools.new_stock_tools import StockAnalysis
 from tools.agert_tools import LangGraphToolConverter
@@ -39,6 +40,14 @@ model = ChatOpenAI(
         streaming=True
     ).bind_tools(tools)
 
+# 生成总结
+summary_model = ChatOpenAI(
+    model="deepseek-reasoner",
+    base_url="https://api.deepseek.com/v1",
+    api_key=my_api_key,
+    streaming=True
+)
+
 
 class AgentState(TypedDict):
     messages: List[BaseMessage]
@@ -48,7 +57,7 @@ class AgentState(TypedDict):
     final_answer: str
 
 def create_plan(state: AgentState) -> AgentState:
-    """根据问题和思维导图生成执行计划"""
+    """根据问题生成执行计划"""
     messages = state["messages"]
     
     # 提取最后一条用户消息中的问题和思维导图
@@ -57,30 +66,44 @@ def create_plan(state: AgentState) -> AgentState:
     # 构建计划生成提示
     planning_prompt = ChatPromptTemplate.from_messages([
         ("system", """
-         你是一个金融分析师，你需要对指定的股票进行分析，首先你需要生成一个详细的执行计划，用于获取数据，最终结合数据来分析股票。
+         你是一个金融分析师，你需要对指定的股票进行技术面分析，首先你需要生成一系列详细的执行计划，用于获取数据以及技术指标，最终结合数据来分析股票。
          我会提供一系列的工具，你可以使用这些工具来获取数据和分析数据。
-         根据用户的问题，生成一个详细的执行计划。每个步骤都应该清晰具体，通过“<>”来包扩内容，步骤间使用换行进行分隔，以便我解析。
-         同一个步骤可以执行多个工具，尽可能的执行少的步骤。
+         <>内表示需要执行步骤的类型，目前需要规划的步骤有三种类型：
+            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具
+            2. <分析>：对获取的数据进行分析和处理，单纯的分析数据，不调用工具
+            3. <总结>：对分析结果进行深度总结，生成最终的回答
+         []内表示需要执行的计划内容。
+         每个步骤都应该清晰具体，步骤间使用"\n"进行分隔，以便解析。尽可能的执行少的步骤完成任务。
+         "<>"、"[]"内部禁止使用换行。
+         目前无法获取除问题中提供的股票代码和交易所代码以外的其他数据。
          以下是一个示例：
-            < 步骤 1： 获取特斯拉的历史数据 >
-            < 步骤 2： 计算特斯拉的移动平均线、KDJ、RSI >
-            < 步骤 3： 综合技术指标和历史数据，分析特斯拉的股票走势 >
-            < 步骤 4： 生成分析报告 >
+            <数据>[获取特斯拉的历史数据]
+            <数据>[计算特斯拉的移动平均线、KDJ、RSI]
+            <分析>[综合技术指标和历史数据，分析特斯拉的股票走势]
+            <总结>[生成分析报告]
          """
          ),
         ("user", "{input}")
     ])
     
     # 生成计划
-    response = model.invoke(
+    response = summary_model.invoke(
         planning_prompt.format_messages(input=last_message)
     )
-    
-    # 解析生成的计划,每个步骤被<>包围
-    # 这里假设返回的内容是以换行符分隔的步骤
-    # 例如："< 步骤 1： >\n< 步骤 2： >\n< 步骤 3： >"
+
+    # 按照<>[]解析生成的计划
     plan_steps = response.content.split("\n")
-    plan_steps = [step.strip("< >") for step in plan_steps if step.strip()]
+    for i in range(len(plan_steps)):
+        # 去除每个步骤的前后空格
+        plan_steps[i] = plan_steps[i].strip()
+        #过滤掉不含步骤的内容
+        if (not plan_steps[i].startswith("<")) and (not plan_steps[i].endswith("]")):
+            #删除步骤
+            plan_steps[i] = ""
+            
+    
+    # 过滤掉空步骤
+    plan_steps = [step for step in plan_steps if step]
     
 
     print("Generated plan steps:", plan_steps)
@@ -106,47 +129,63 @@ def execute_step(state: AgentState) -> AgentState:
         
     current_step = state["plan"][state["current_step"]]
     messages = state["messages"]
-    
+
+    #将之前步骤执行结果添加到文本中
+    plan_result = ""
+    for i in range(state["current_step"]):
+        plan_result += f"{state['plan'][i]} "
+        plan_result += f"执行结果：{state['results'][i]} \n"
+
+    plan_result = dedent(plan_result)
+
     # 构建执行步骤的提示
     execution_prompt = ChatPromptTemplate.from_messages([
-        ("system", "根据当前步骤执行任务，如果需要可以使用可用的工具。"),
-        ("user", "{context}\n\n当前步骤: {step}")
+        ("system", "{plan_result}"),
+        ("system", 
+         """
+        根据当前步骤
+        执行任务，如果需要可以使用可用的工具。通过工具获取的数据的索引越大时间越接近现在。
+        <>内表示需要执行步骤的类型，目前有三种类型：
+            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具
+            2. <分析>：对获取的数据进行分析和处理，单纯的分析数据，不能调用工具
+            3. <总结>：对分析结果进行深度总结，不能调用工具，生成最终的回答
+        []内表示需要执行的计划内容。
+         """),
+        ("user", "{question}当前步骤: {current_step}")
     ])
-    
-    # 执行步骤
-    response = model.invoke(
-        execution_prompt.format_messages(
-            context=messages[-1].content,
-            step=current_step
-        )
+
+    input = execution_prompt.format_messages(
+            question=messages[0].content,
+            current_step=current_step,
+            plan_result=plan_result
     )
 
-    #判断是否调用工具
-    if response.tool_calls:
+    #判断步骤类型
+    if current_step.startswith("<数据>"):
+        # current_step = current_step.replace("<数据>", "").strip()
+        # 执行步骤
+        response = model.invoke(input)
         res = []
-        for toolcall in response.tool_calls:
-            tool = find_tool_by_name(toolcall.get("name"))
-            if tool:
-                # 调用工具
-                tool_response = tool.invoke(toolcall.get("args"))
-                # 将工具的响应添加到结果中
-                res.append(tool_response)
-                # 将工具的响应添加到消息中
-                messages.append(AIMessage(content=tool_response))
-            else:
+        #判断是否调用工具
+        if response.tool_calls:
+            for toolcall in response.tool_calls:
+                tool = find_tool_by_name(toolcall.get("name"))
+                if tool:
+                    # 调用工具
+                    tool_response = tool.invoke(toolcall.get("args"))
+                    # 将工具的响应添加到结果中
+                    res.append(tool_response)
+                else:
+                    print(f"未找到工具: {toolcall.get('name')}")
 
-                messages.append(AIMessage(content=f"未找到工具: {toolcall.get('name')}"))
+    elif current_step.startswith("<分析>"):
+        # current_step = current_step.replace("<分析>", "").strip()
+        # 执行步骤
+        response = model.invoke(input)
+        res = response.content
     else:
-        # 如果没有工具调用，分析结果
-        tools_res = state["results"]
-        res = model.invoke(
-            execution_prompt.format_messages(
-                context=messages[-1].content,
-                step=current_step
-            )
-        )
-        res = res.content
-        messages.append(AIMessage(content=res))
+        res = ""
+
     return {
         **state,
         "current_step": state["current_step"] + 1,
@@ -163,25 +202,35 @@ def generate_final_answer(state: AgentState) -> AgentState:
     """生成最终答案"""
     messages = state["messages"]
     results = state["results"]
+
+    #将之前步骤执行结果添加到文本中
+    plan_result = ""
+    for i in range(state["current_step"]):
+        plan_result += f"{state['plan'][i]} "
+        plan_result += f"执行结果：{state['results'][i]} \n"
+
+    plan_result = dedent(plan_result)
     
     # 构建总结提示
     summary_prompt = ChatPromptTemplate.from_messages([
-        ("system", "根据执行结果生成一个完整的回答。"),
-        ("user", "原始问题: {question}\n\n执行结果:\n{results}")
+        ("system", """
+         工具获取的数据和分析结果已经完成，数据的索引越大时间越接近现在，接下来你需要对这些数据进行深度总结，生成最终的回答。
+        你是一个金融分析师，你需要结合技术指标对股票进行深度分析。
+        以下为必须包含的内容：
+            1.股票的中、长、短期的趋势判断以及买卖策略
+            2.结合技术指标的分析结果，判断股票的买入和卖出时机。
+        其他内容可以自由发挥，结合之前的计划执行结果，生成一个深度的分析报告，旨在帮助用户更好的分析股票。。
+         """),
+        ("user", "原始问题: {question}\n\n计划及执行结果:\n{results}"),
     ])
+
     
-    # 生成总结
-    summary_model = ChatOpenAI(
-        model="deepseek-reasoner",
-        base_url="https://api.deepseek.com/v1",
-        api_key=my_api_key,
-        streaming=True
-    )
+    
 
     response = summary_model.invoke(
         summary_prompt.format_messages(
             question=messages[0].content,
-            results="\n".join(results)
+            results=plan_result
         )
     )
     
@@ -238,19 +287,3 @@ def run_agent(question: str) -> str:
     final_state = agent.invoke(initial_state,config={"callbacks": [langfuse_handler]})
     
     return final_state["final_answer"]
-
-if "__main__" == __name__:
-    question = "如何实现一个简单的待办事项应用？"
-    mindmap = """
-    graph TD
-        A[待办事项应用] --> B[前端界面]
-        A --> C[数据存储]
-        B --> D[添加任务]
-        B --> E[显示任务列表]
-        B --> F[标记完成状态]
-        C --> G[本地存储]
-        C --> H[数据同步]
-    """
-
-    result = run_agent(question, mindmap)
-    print(result)
