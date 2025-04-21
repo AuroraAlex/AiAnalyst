@@ -148,6 +148,41 @@ class LangGraphToolConverter:
                 return List[item_type]
             return type_map[type_name]
         return Any
+    
+    def get_function_calling_json_schema(self, tool: BaseTool) -> Dict:
+        """
+        获取函数调用的JSON Schema
+        
+        Args:
+            tool: LangGraph工具实例
+            
+        Returns:
+            open ai function calling JSON Schema定义
+        """
+        #将base_tool实例转换为openai 工具调用的JSON Schema
+        json_schema = {
+            "name": tool.name,
+            "description": tool.description,
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+        #如果参数为空
+        if not tool.args:
+            return json_schema
+        
+
+        for arg in tool.args:
+            json_schema["parameters"]["properties"][arg.name] = {
+                "type": arg.type.__name__,
+                "description": arg.description or ""
+            }
+            if arg.required:
+                json_schema["parameters"]["required"].append(arg.name)
+        
+        return json_schema
 
 
 class FunctionRegistry:
@@ -217,8 +252,16 @@ if __name__ == "__main__":
         """将两个数字相加"""
         return a + b
     
+    def fetch_data() -> str:
+        """获取数据"""
+        return "data"
+    
     # 转换为工具
     add_tool = converter.function_to_tool(add)
+    fetch_data_tool = converter.function_to_tool(fetch_data)
+
+    schema = converter.get_function_calling_json_schema(fetch_data_tool)
+    print(schema)
     
     # 创建工具节点
     tool_node = converter.create_tool_node()
