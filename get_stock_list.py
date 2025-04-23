@@ -1,4 +1,5 @@
 import requests
+import json
 
 def get_stock_list(exchange_code: str = "XNAS") -> None:
     """
@@ -10,8 +11,9 @@ def get_stock_list(exchange_code: str = "XNAS") -> None:
     data = requests.get(url).json()
 
     with open(exchange_code+"_stock.json", "w", encoding="utf-8") as f:
-        f.write(str(data))
+        # Write the JSON data to a file using json.dump to ensure proper formatting
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 if __name__ == "__main__":
-    get_stock_list()
+    get_stock_list("XHKG")

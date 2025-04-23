@@ -12,3 +12,4 @@ matplotlib==3.7.1
 mplfinance==0.12.9b7
 pandas_ta==0.3.14b
 langgraph>=0.0.1
+streamlit>=1.24.0
