@@ -9,6 +9,8 @@ from textwrap import dedent
 from tools.new_stock_tools import StockAnalysis
 from tools.agert_tools import LangGraphToolConverter
 
+from langgraph.config import get_stream_writer
+
 from langfuse.callback import CallbackHandler
 # Initialize Langfuse CallbackHandler for Langchain (tracing)
 langfuse_handler = CallbackHandler()
@@ -48,6 +50,13 @@ summary_model = ChatOpenAI(
     streaming=True
 )
 
+reasoner_model = ChatOpenAI(
+    model="deepseek-reasoner",
+    base_url="https://api.deepseek.com/v1",
+    api_key=my_api_key,
+    streaming=True,
+    use_responses_api=True, 
+    )
 
 class AgentState(TypedDict):
     messages: List[BaseMessage]
@@ -66,21 +75,21 @@ def create_plan(state: AgentState) -> AgentState:
     # 构建计划生成提示
     planning_prompt = ChatPromptTemplate.from_messages([
         ("system", """
-         你是一个金融分析师，你需要对指定的股票进行技术面分析，首先你需要生成一系列详细的执行计划，用于获取数据以及技术指标，最终结合数据来分析股票。
+         你是一个金融分析师助手，你需要判断对股票进行技术面分析需要哪些步骤，你需要生成一系列的执行计划，用于获取数据以及技术指标，最终结合数据来分析股票。
          我会提供一系列的工具，你可以使用这些工具来获取数据和分析数据。
          <>内表示需要执行步骤的类型，目前需要规划的步骤有三种类型：
-            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具
-            2. <分析>：对获取的数据进行分析和处理，单纯的分析数据，不调用工具
+            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具,你需要指定获取多少天的日线数据，需要注意计算技术指标工具的周期必须远小于获取日线数据的周期，因为指定周期内存在节假日不开盘。
             3. <总结>：对分析结果进行深度总结，生成最终的回答
          []内表示需要执行的计划内容。
-         每个步骤都应该清晰具体，步骤间使用"\n"进行分隔，以便解析。尽可能的执行少的步骤完成任务。
+         每个步骤都应该清晰具体，步骤间使用"\n"进行分隔，以便解析。一个计划可以包含多个内容，尽可能的执行少的步骤完成任务。
          "<>"、"[]"内部禁止使用换行。
          目前无法获取除问题中提供的股票代码和交易所代码以外的其他数据。
          以下是一个示例：
             <数据>[获取特斯拉的历史数据]
             <数据>[计算特斯拉的移动平均线、KDJ、RSI]
-            <分析>[综合技术指标和历史数据，分析特斯拉的股票走势]
             <总结>[生成分析报告]
+         
+         
          """
          ),
         ("user", "{input}")
@@ -123,11 +132,13 @@ def find_tool_by_name(tools_name: str):
     return None
     
 def execute_step(state: AgentState) -> AgentState:
+    writer = get_stream_writer()
     """执行当前计划步骤"""
     if state["current_step"] >= len(state["plan"]):
         return state
-        
+    
     current_step = state["plan"][state["current_step"]]
+    writer(f"> 当前步骤: {current_step}\n\n")
     messages = state["messages"]
 
     #将之前步骤执行结果添加到文本中
@@ -147,7 +158,6 @@ def execute_step(state: AgentState) -> AgentState:
         执行任务，如果需要可以使用可用的工具。通过工具获取的数据的索引越大时间越接近现在。
         <>内表示需要执行步骤的类型，目前有三种类型：
             1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具
-            2. <分析>：对获取的数据进行分析和处理，单纯的分析数据，不能调用工具
             3. <总结>：对分析结果进行深度总结，不能调用工具，生成最终的回答
         []内表示需要执行的计划内容。
          """),
@@ -202,6 +212,7 @@ def generate_final_answer(state: AgentState) -> AgentState:
     """生成最终答案"""
     messages = state["messages"]
     results = state["results"]
+    writer = get_stream_writer()
 
     #将之前步骤执行结果添加到文本中
     plan_result = ""
@@ -214,8 +225,8 @@ def generate_final_answer(state: AgentState) -> AgentState:
     # 构建总结提示
     summary_prompt = ChatPromptTemplate.from_messages([
         ("system", """
+         你是一个金融分析师，你需要结合技术指标对股票进行深度分析。
          工具获取的数据和分析结果已经完成，数据的索引越大时间越接近现在，接下来你需要对这些数据进行深度总结，生成最终的回答。
-        你是一个金融分析师，你需要结合技术指标对股票进行深度分析。
         以下为必须包含的内容：
             1.股票的中、长、短期的趋势判断以及买卖策略
             2.结合技术指标的分析结果，判断股票的买入和卖出时机。
@@ -224,19 +235,22 @@ def generate_final_answer(state: AgentState) -> AgentState:
         ("user", "原始问题: {question}\n\n计划及执行结果:\n{results}"),
     ])
 
-    
-    
-
-    response = summary_model.invoke(
+    response = summary_model.stream(
         summary_prompt.format_messages(
             question=messages[0].content,
             results=plan_result
         )
     )
+    ai_msg = ""
+    for chunk in response:
+        if chunk.content != '':
+            writer(chunk.content)
+            ai_msg += chunk.content.strip()
     
     return {
         **state,
-        "final_answer": response.content
+        "final_answer": ai_msg,
+        "results": state["results"] + [ai_msg],
     }
 
 def create_agent() -> Graph:
@@ -267,7 +281,7 @@ def create_agent() -> Graph:
     
     return workflow.compile()
 
-def run_agent(question: str) -> str:
+def run_agent(question: str) :
     """运行 Agent 处理问题"""
     # 组合问题和思维导图
     input_message = f"问题：{question}\n\n"
@@ -284,6 +298,6 @@ def run_agent(question: str) -> str:
     # 创建并运行工作流
     agent = create_agent()
     #使用langfuse进行trace
-    final_state = agent.invoke(initial_state,config={"callbacks": [langfuse_handler]})
-    
-    return final_state["final_answer"]
+    final_state = agent.stream(initial_state,config={"callbacks": [langfuse_handler]},stream_mode = "custom")
+    for chunk in final_state:
+        yield chunk

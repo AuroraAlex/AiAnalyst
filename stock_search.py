@@ -26,7 +26,9 @@ def analyze_stock(name, ticker, exchange_code):
     st.header(f"Analyzing {name} ({ticker})")
     with st.spinner('Analyzing stock data...'):
         analysis = plan_agent.run_agent(f"分析股票 {name}（交易所代码（exchange_code：{exchange_code}）：代码：{ticker}）的技术指标和走势")
-        st.write(analysis)
+        # for chunk in analysis:
+        st.write_stream(analysis)
+        # st.write(analysis)
 
 def main():
     # 搜索区域

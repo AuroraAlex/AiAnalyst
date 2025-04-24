@@ -180,6 +180,8 @@ class StockAnalysis:
             raise ValueError("请先获取股票数据。")
         # 计算SMA指标
         sma = ta.sma(self.stock_data["close"], length=period)
+        if sma is None:
+            return "SMA计算失败"
         # 将SMA数据转换为JSON格式
         sma_json = sma.to_json(orient='split', index=False)
         
