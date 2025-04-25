@@ -33,22 +33,40 @@ tools = LangGraphToolConverter().functions_to_tools([
 
 
 config = dotenv_values("./.env")
-my_api_key = config.get("MODEL_API_KEY")
+deepseek = False
 
-model = ChatOpenAI(
-        model="deepseek-chat",
+if deepseek:
+    my_api_key = config.get("DEEPSEEK_MODEL_API_KEY")
+    model = ChatOpenAI(
+            model="deepseek-chat",
+            base_url="https://api.deepseek.com/v1",
+            api_key=my_api_key,
+            streaming=True
+        ).bind_tools(tools)
+
+
+    summary_model = ChatOpenAI(
+        model="deepseek-reasoner",
         base_url="https://api.deepseek.com/v1",
         api_key=my_api_key,
         streaming=True
-    ).bind_tools(tools)
+    )
+else:
+    my_api_key = config.get("MODEL_API_KEY")
+    model = ChatOpenAI(
+            model="qwen-max-latest",
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1/",
+            api_key=my_api_key,
+            streaming=True
+        ).bind_tools(tools)
 
-# 生成总结
-summary_model = ChatOpenAI(
-    model="deepseek-reasoner",
-    base_url="https://api.deepseek.com/v1",
-    api_key=my_api_key,
-    streaming=True
-)
+
+    summary_model = ChatOpenAI(
+        model="qwq-plus-latest",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1/",
+        api_key=my_api_key,
+        streaming=True
+    )
 
 reasoner_model = ChatOpenAI(
     model="deepseek-reasoner",
@@ -82,7 +100,7 @@ def create_plan(state: AgentState) -> AgentState:
             3. <总结>：对分析结果进行深度总结，生成最终的回答
          []内表示需要执行的计划内容。
          每个步骤都应该清晰具体，步骤间使用"\n"进行分隔，以便解析。一个计划可以包含多个内容，尽可能的执行少的步骤完成任务。
-         "<>"、"[]"内部禁止使用换行。
+         "<>"、"[]"内部禁止使用换行或"\n"。
          目前无法获取除问题中提供的股票代码和交易所代码以外的其他数据。
          以下是一个示例：
             <数据>[获取特斯拉的历史数据]
@@ -99,6 +117,10 @@ def create_plan(state: AgentState) -> AgentState:
     response = summary_model.invoke(
         planning_prompt.format_messages(input=last_message)
     )
+    #使用正则匹配"<"到"]"之前的内容，解析计划
+    plan_steps = response.content.split
+
+
 
     # 按照<>[]解析生成的计划
     plan_steps = response.content.split("\n")

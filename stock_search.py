@@ -10,13 +10,19 @@ def load_stock_data():
             nas_stocks = json.load(f)
         with open('XHKG_stock.json', 'r', encoding='utf-8') as f:
             hk_stocks = json.load(f)
+        with open('XSHG_stock.json', 'r', encoding='utf-8') as f:
+            sh_stocks = json.load(f)
+        with open('XSHE_stock.json', 'r', encoding='utf-8') as f:
+            she_stocks = json.load(f)
 
         # Convert to DataFrames
         nas_df = pd.DataFrame(nas_stocks.get('data', []))
         hk_df = pd.DataFrame(hk_stocks.get('data', []))
+        sh_df = pd.DataFrame(sh_stocks.get('data', []))
+        she_df = pd.DataFrame(she_stocks.get('data', []))
         
         # Combine all stocks
-        all_stocks = pd.concat([nas_df, hk_df], ignore_index=True)
+        all_stocks = pd.concat([nas_df, hk_df, sh_df, she_df], ignore_index=True)
         return all_stocks
     except Exception as e:
         st.error(f"Error loading stock data: {str(e)}")
@@ -37,11 +43,11 @@ def main():
     analysis_container = st.container()
     
     with search_container:
-        st.title("Stock Search Interface")
-        st.write("Search for stocks in NASDAQ and Hong Kong Exchanges")
+        st.title("Stock Search And Analysis")
+        st.write("Search for stocks in NASDAQ, Hong Kong, Shengzheng and Shanghai Exchanges")
         
         # 搜索框占据较小的宽度
-        col1, col2 = st.columns([3, 3])
+        col1, col2 = st.columns([4, 4])
         with col1:
             search_query = st.text_input("Enter stock code or name to search:", "")
         
@@ -56,12 +62,14 @@ def main():
                     st.markdown("---")  # 添加分隔线                    
                     # 使用更紧凑的布局显示股票列表
                     for _, row in filtered_df.iterrows():
-                        cols = st.columns([4, 2, 1])
+                        cols = st.columns([3, 2, 2, 2])
                         with cols[0]:
                             st.write(row['name'])
                         with cols[1]:
-                            st.write(row['ticker'])
+                            st.write(row['exchange_code'])
                         with cols[2]:
+                            st.write(row['ticker'])
+                        with cols[3]:
                             if st.button("Analyze", key=f"analyze_{row['ticker']}"):
                                 with analysis_container:
                                     st.markdown("---")  # 添加分隔线
