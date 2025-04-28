@@ -16,4 +16,4 @@ def get_stock_list(exchange_code: str = "XNAS") -> None:
 
 
 if __name__ == "__main__":
-    get_stock_list("XSHE")
+    get_stock_list("XNYS")

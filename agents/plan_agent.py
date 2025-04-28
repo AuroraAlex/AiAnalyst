@@ -33,7 +33,7 @@ tools = LangGraphToolConverter().functions_to_tools([
 
 
 config = dotenv_values("./.env")
-deepseek = False
+deepseek = True
 
 if deepseek:
     my_api_key = config.get("DEEPSEEK_MODEL_API_KEY")

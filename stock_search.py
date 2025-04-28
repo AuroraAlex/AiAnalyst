@@ -14,15 +14,18 @@ def load_stock_data():
             sh_stocks = json.load(f)
         with open('XSHE_stock.json', 'r', encoding='utf-8') as f:
             she_stocks = json.load(f)
+        with open('XNYS_stock.json', 'r', encoding='utf-8') as f:
+            nys_stocks = json.load(f)
 
         # Convert to DataFrames
         nas_df = pd.DataFrame(nas_stocks.get('data', []))
         hk_df = pd.DataFrame(hk_stocks.get('data', []))
         sh_df = pd.DataFrame(sh_stocks.get('data', []))
         she_df = pd.DataFrame(she_stocks.get('data', []))
+        nys_df = pd.DataFrame(nys_stocks.get('data', []))
         
         # Combine all stocks
-        all_stocks = pd.concat([nas_df, hk_df, sh_df, she_df], ignore_index=True)
+        all_stocks = pd.concat([nas_df, hk_df, sh_df, she_df, nys_df], ignore_index=True)
         return all_stocks
     except Exception as e:
         st.error(f"Error loading stock data: {str(e)}")
@@ -44,7 +47,7 @@ def main():
     
     with search_container:
         st.title("Stock Search And Analysis")
-        st.write("Search for stocks in NASDAQ, Hong Kong, Shengzheng and Shanghai Exchanges")
+        st.write("Search for stocks in NASDAQ, NYS, Hong Kong, Shengzheng and Shanghai Exchanges")
         
         # 搜索框占据较小的宽度
         col1, col2 = st.columns([4, 4])
