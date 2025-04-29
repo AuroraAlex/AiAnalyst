@@ -15,12 +15,12 @@ from langgraph.graph import StateGraph, MessagesState, START, END
 from langgraph.prebuilt import ToolNode
 
 # 加载环境变量
-config = dotenv_values("../.env")
-my_api_key = config.get("OPENAI_API_KEY")
+config = dotenv_values("./.env")
+my_api_key = config.get("MODEL_API_KEY")
 
 # 配置代理
-os.environ['http_proxy'] = 'http://127.0.0.1:2561'
-os.environ['https_proxy'] = 'http://127.0.0.1:2561'
+os.environ['http_proxy'] = 'http://127.0.0.1:6789'
+os.environ['https_proxy'] = 'http://127.0.0.1:6789'
 
 # 创建搜索工具
 @tool
@@ -61,11 +61,17 @@ if __name__ == "__main__":
     tool_node = ToolNode(tools)
     # 创建 ChatOpenAI 实例
     llm = ChatOpenAI(
-        model="qwen-max-latest",
+        model="qwq-plus-latest",
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         api_key=my_api_key,
         streaming=True
     )
+    # llm = ChatOpenAI(
+    #     model="deepseek-chat",
+    #     base_url="https://api.deepseek.com",
+    #     api_key="sk-e93fcab2961d421aa3347db4b7d7e547",
+    #     streaming=True
+    # )
     model_with_tools = llm.bind_tools(tools)
     workflow = StateGraph(MessagesState)
     # Define the two nodes we will cycle between

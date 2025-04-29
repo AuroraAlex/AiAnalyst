@@ -9,7 +9,8 @@ async def main():
     print("初始化FunctionCallingAgent...")
     agent = FunctionCallingAgent()
     app = agent.creat_agent()
-    
+    #可视化
+    # gv.GraphVisualizer().just_show_workflow(app)
     messages = []
     # 创建系统Message
     system_message = SystemMessage(content=[{

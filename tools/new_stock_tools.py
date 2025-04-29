@@ -22,6 +22,7 @@ class StockAnalysis:
         load_dotenv()
         self.data_api_key = os.getenv("STOCK_DATA_API_KEY")
         self.data_base_url = os.getenv("STOCK_DATA_BASE_URL")
+        self.stock_data = None
 
     def plot_stock_daily(self, stock_code: str, exchange_code: str, save_path: str = None) -> None:
         """
@@ -124,15 +125,15 @@ class StockAnalysis:
             
         plt.close()
 
-    def get_stock_daily_data(self,stock_code, exchange_code,days=90):
+    def get_stock_daily_data(self, stock_code: str, exchange_code: str, days: int = 120) -> str:
         """
-        查询指定股票过去一个月的日线数据
+        查询指定股票指定时间（默认 120 天）的日线数据,保存到self.stock_data
 
         :param stock_code: 股票代码 (例如 "AAPL")
-        :param exchange_code: 交易所代码 (例如 "NASDAQ")
-        :return: 返回日线数据的JSON对象
+        :param exchange_code: 交易所代码 (例如 "XNAS" 或 "XHKG")
+        :return: 返回查询状态
         """
-        # 获取当前日期和一个月前的日期
+        # 获取当前日期和指定时间前的日期
         end_date = datetime.datetime.now().strftime("%Y-%m-%d")
         start_date = (datetime.datetime.now() - datetime.timedelta(days)).strftime("%Y-%m-%d")
 
@@ -154,7 +155,8 @@ class StockAnalysis:
                 df['date'] = pd.to_datetime(df['date'])
                 df = df.set_index('date')
                 
-                return df
+                self.stock_data = df
+                return df.to_json(orient='split', index=False)
             else:
                 print(f"API Error: {data.get('code')}")
                 return None
@@ -167,109 +169,129 @@ class StockAnalysis:
             return None
         
     
-    def calculate_sma(self, df: pd.DataFrame, period: int = 20):
+    def calculate_sma(self, period: int = 20)-> str:
         """
         计算简单移动平均线（SMA）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param period: SMA的计算周期
-        :return: 包含SMA数据的Pandas DataFrame
+        :return: 包含SMA数据的 json
         """
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
         # 计算SMA指标
-        sma = ta.sma(df["close"], length=period)
-        return sma.round(2)
+        sma = ta.sma(self.stock_data["close"], length=period)
+        if sma is None:
+            return "SMA计算失败"
+        # 将SMA数据转换为JSON格式
+        sma_json = sma.to_json(orient='split', index=False)
+        
+        return sma_json
     
-    def calculate_ema(self, df: pd.DataFrame, period: int = 20):
+    def calculate_ema(self, period: int = 20) -> str:
         """
         计算指数移动平均线（EMA）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param period: EMA的计算周期
-        :return: 包含EMA数据的Pandas DataFrame
+        :return: 包含EMA数据的JSON格式
         """
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
         # 计算EMA指标
-        ema = ta.ema(df["close"], length=period)
-        return ema.round(2)
+        ema = ta.ema(self.stock_data["close"], length=period)
+        ema_json = ema.round(2).to_json(orient='split', index=False)
+        return ema_json
     
-    def calculate_macd(self, df: pd.DataFrame, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9):
+    def calculate_macd(self, fast_period: int = 12, slow_period: int = 26, signal_period: int = 9) -> str:
         """
         计算移动平均收敛-散度指标（MACD）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param fast_period: MACD的快速线计算周期
         :param slow_period: MACD的慢速线计算周期
         :param signal_period: MACD的信号线计算周期
-        :return: 包含MACD数据的Pandas DataFrame,pd.DataFrame: macd, histogram, signal columns
+        :return: 包含MACD数据的JSON格式
         """
         # 计算MACD指标
-        df = df.sort_index(ascending=True)
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
+        df = self.stock_data.sort_index(ascending=True)
         macd = ta.macd(df["close"], fast=fast_period, slow=slow_period, signal=signal_period)
         macd.columns = ['macd', 'histogram', 'signal']
-        return macd.round(2)
+        macd_json = macd.round(2).to_json(orient='split', index=False)
+        return macd_json
     
-    def calculate_rsi(self, df: pd.DataFrame, period: int = 14):
+    def calculate_rsi(self, period: int = 14) -> str:
         """
         计算相对强弱指标（RSI）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param period: RSI的计算周期
-        :return: 包含RSI数据的Pandas DataFrame
+        :return: 包含RSI数据的JSON格式
         """
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
         # 计算RSI指标
-        rsi = ta.rsi(df["close"], length=period)
-        return rsi.round(2)
+        rsi = ta.rsi(self.stock_data["close"], length=period)
+        rsi_json = rsi.round(2).to_json(orient='split', index=False)
+        return rsi_json
     
-    def calculate_bollinger_bands(self, df: pd.DataFrame, period: int = 20, std_dev: int = 2):
+    def calculate_bollinger_bands(self, period: int = 20, std_dev: int = 2) -> str:
         """
         计算布林带指标
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param period: 布林带的计算周期
         :param std_dev: 布林带的标准差
-        :return: 包含布林带数据的Pandas DataFrame,pd.DataFrame: lower, mid, upper, bandwidth, and percent columns.
+        :return: 包含布林带数据的json: lower, mid, upper, bandwidth, and percent columns.
         """
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
         # 计算布林带指标
-        bbol= ta.bbands(df["close"], length=period, std=std_dev)
+        bbol= ta.bbands(self.stock_data["close"], length=period, std=std_dev)
         bbol.columns = ['lower', 'mid', 'upper', 'bandwidth', 'percent']
-        return bbol.round(2)
+        bbol_json = bbol.round(2).to_json(orient='split', index=False)
+        return bbol_json
     
 
-    def calculate_kdj(self, df: pd.DataFrame, k_period: int = 14, d_period: int = 3):
+    def calculate_kdj(self, k_period: int = 14, d_period: int = 3) -> str:
         """
         计算随机指标（KDJ）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param k_period: KDJ的K线计算周期
         :param d_period: KDJ的D线计算周期
-        :return: 包含KDJ数据的Pandas DataFrame
+        :return: 包含KDJ数据的json
         """
         # 计算KDJ指标
-        kdj = ta.kdj(high=df['high'], low=df['low'], close=df['close'], fillna=float('nan'),length=k_period,signal=d_period)
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
+        kdj = ta.kdj(high=self.stock_data['high'], low=self.stock_data['low'], close=self.stock_data['close'], fillna=float('nan'),length=k_period,signal=d_period)
         kdj.columns = ['k', 'd', 'j']
-        return kdj.round(2)
+        kdj_json = kdj.round(2).to_json(orient='split', index=False)
+        return kdj_json
     
-    def calculate_atr(self, df: pd.DataFrame, period: int = 14):
+    def calculate_atr(self, period: int = 14)-> str:
         """
         计算真实波幅指标（ATR）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :param period: ATR的计算周期
-        :return: 包含ATR数据的Pandas DataFrame
+        :return: 包含ATR数据的json
         """
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
         # 计算ATR指标
-        atr = ta.atr(df['high'], df['low'], df['close'], length=period)
-        return atr.round(2)
+        atr = ta.atr(self.stock_data['high'], self.stock_data['low'], self.stock_data['close'], length=period)
+        atr_json = atr.round(2).to_json(orient='split', index=False)
+        return atr_json
     
-    def calculate_obv(self, df: pd.DataFrame):
+    def calculate_obv(self):
         """
         计算能量潮指标（OBV）
 
-        :param df: 包含股票数据的Pandas DataFrame
         :return: 包含OBV数据的Pandas DataFrame
         """
         # 计算OBV指标
-        obv = ta.obv(df['close'], df['volume'])
-        return obv.round(2)
+        if self.stock_data is None:
+            raise ValueError("请先获取股票数据。")
+        obv = ta.obv(self.stock_data['close'], self.stock_data['volume'])
+        obv_json = obv.round(2).to_json(orient='split', index=False)
+        return obv_json
     
     def calculate_all(self):
         """
