@@ -23,6 +23,7 @@ class StockAnalysis:
         self.data_api_key = os.getenv("STOCK_DATA_API_KEY")
         self.data_base_url = os.getenv("STOCK_DATA_BASE_URL")
         self.stock_data = None
+        self.realtime_data = None
 
     def plot_stock_daily(self, stock_code: str, exchange_code: str, save_path: str = None) -> None:
         """
@@ -125,9 +126,43 @@ class StockAnalysis:
             
         plt.close()
 
+    def get_real_time_data(self, stock_code: str, exchange_code: str) -> str:
+        """
+        获取该只股票的实时行情open、high、low、close、volume等数据，close如果未收盘则是最新价。
+        盘口数据：盘口委买价（sell_price）、盘口委卖价（buy_price）、盘口委买量（sell_volume）、盘口委卖量（buy_volume）等。
+
+        :param stock_code: 股票代码 (例如 "AAPL")
+        :param exchange_code: 交易所代码 (例如 "XNAS" 或 "XHKG")
+        :return: 返回查询状态的JSON字符串，如果失败则返回None
+        """
+        # 发送请求到沧海数据API
+        url = f"{self.data_base_url}api/fin/stock/{exchange_code}/realtime?token={self.data_api_key}&ticker={stock_code}"
+
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+            data = response.json()
+            
+            if data.get("code") == 200 and data.get("data"):
+                df = pd.DataFrame(data.get("data"))
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.set_index('date')
+                self.realtime_data = df
+                return df.to_json(orient='split', index=False)
+            else:
+                print(f"API Error: {data.get('code')} - {data.get('message', 'Unknown error')}")
+                return None
+            
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {str(e)}")
+            return None
+        except (ValueError, KeyError) as e:
+            print(f"Data processing error: {str(e)}")
+            return None
+
     def get_stock_daily_data(self, stock_code: str, exchange_code: str, days: int = 120) -> str:
         """
-        查询指定股票指定时间（默认 120 天）的日线数据,保存到self.stock_data
+        查询指定股票指定时间（默认 120 天）的日线数据（如果是交易日不包含今日的数据）,保存到self.stock_data
 
         :param stock_code: 股票代码 (例如 "AAPL")
         :param exchange_code: 交易所代码 (例如 "XNAS" 或 "XHKG")
