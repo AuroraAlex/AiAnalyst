@@ -1,7 +1,8 @@
 import streamlit as st
 import json
 import pandas as pd
-import agents.plan_agent as plan_agent
+# import agents.plan_agent as plan_agent
+import agents.trade_analysis_agent as plan_agent
 
 # Load stock data
 def load_stock_data():
