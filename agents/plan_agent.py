@@ -6,6 +6,12 @@ from langchain_openai import ChatOpenAI
 from dotenv import dotenv_values
 from textwrap import dedent
 
+from config.prompts import (
+    PLANNING_SYSTEM_PROMPT,
+    EXECUTION_SYSTEM_PROMPT,
+    SUMMARY_SYSTEM_PROMPT
+)
+
 from tools.new_stock_tools import StockAnalysis
 from tools.agert_tools import LangGraphToolConverter
 
@@ -92,24 +98,7 @@ def create_plan(state: AgentState) -> AgentState:
     
     # 构建计划生成提示
     planning_prompt = ChatPromptTemplate.from_messages([
-        ("system", """
-         你是一个金融分析师助手，你需要判断对股票进行技术面分析需要哪些步骤，你需要生成一系列的执行计划，用于获取数据以及技术指标，最终结合数据来分析股票。
-         我会提供一系列的工具，你可以使用这些工具来获取数据和分析数据。
-         <>内表示需要执行步骤的类型，目前需要规划的步骤有三种类型：
-            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具,你需要指定获取多少天的日线数据，需要注意计算技术指标工具的周期必须远小于获取日线数据的周期，因为指定周期内存在节假日不开盘。
-            3. <总结>：对分析结果进行深度总结，生成最终的回答
-         []内表示需要执行的计划内容。
-         每个步骤都应该清晰具体，步骤间使用"\n"进行分隔，以便解析。一个计划可以包含多个内容，尽可能的执行少的步骤完成任务。
-         "<>"、"[]"内部禁止使用换行或"\n"。
-         目前无法获取除问题中提供的股票代码和交易所代码以外的其他数据。
-         以下是一个示例：
-            <数据>[获取特斯拉的历史数据]
-            <数据>[计算特斯拉的移动平均线、KDJ、RSI]
-            <总结>[生成分析报告]
-         
-         
-         """
-         ),
+        ("system", PLANNING_SYSTEM_PROMPT),
         ("user", "{input}")
     ])
     
@@ -174,15 +163,7 @@ def execute_step(state: AgentState) -> AgentState:
     # 构建执行步骤的提示
     execution_prompt = ChatPromptTemplate.from_messages([
         ("system", "{plan_result}"),
-        ("system", 
-         """
-        根据当前步骤
-        执行任务，如果需要可以使用可用的工具。通过工具获取的数据的索引越大时间越接近现在。
-        <>内表示需要执行步骤的类型，目前有三种类型：
-            1. <数据>：获取股票的历史数据，或者获取其他相关数据,可以使用一个或多个工具
-            3. <总结>：对分析结果进行深度总结，不能调用工具，生成最终的回答
-        []内表示需要执行的计划内容。
-         """),
+        ("system", EXECUTION_SYSTEM_PROMPT),
         ("user", "{question}当前步骤: {current_step}")
     ])
 
@@ -246,15 +227,8 @@ def generate_final_answer(state: AgentState) -> AgentState:
     
     # 构建总结提示
     summary_prompt = ChatPromptTemplate.from_messages([
-        ("system", """
-         你是一个金融分析师，你需要结合技术指标对股票进行深度分析。
-         工具获取的数据和分析结果已经完成，数据的索引越大时间越接近现在，接下来你需要对这些数据进行深度总结，生成最终的回答。
-        以下为必须包含的内容：
-            1.股票的中、长、短期的趋势判断以及买卖策略
-            2.结合技术指标的分析结果，判断股票的买入和卖出时机。
-        其他内容可以自由发挥，结合之前的计划执行结果，生成一个深度的分析报告，旨在帮助用户更好的分析股票。。
-         """),
-        ("user", "原始问题: {question}\n\n计划及执行结果:\n{results}"),
+        ("system", SUMMARY_SYSTEM_PROMPT),
+        ("user", "原始问题: {question}\n\n计划及执行结果:\n{results}")
     ])
 
     response = summary_model.stream(
